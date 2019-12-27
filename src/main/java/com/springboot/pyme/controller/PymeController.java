@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.springboot.pyme.document.Account;
 import com.springboot.pyme.document.Pyme;
+import com.springboot.pyme.dto.PymeDto;
 import com.springboot.pyme.service.PymeInterface;
 
 import reactor.core.publisher.Flux;
@@ -29,72 +31,89 @@ public class PymeController {
 	
   private static final Logger LOGGER = LoggerFactory.getLogger(PymeController.class);
 
+	@Autowired
+	PymeInterface service;
+	
+	@GetMapping
+	public Mono<ResponseEntity<Flux<Pyme>>> toList() {
 
-  @Autowired
-  PymeInterface service;
+		return Mono.just(ResponseEntity.ok()
+				.contentType(MediaType.APPLICATION_JSON)
+				.body(service.findAll()));
 
-  @GetMapping
-  public Mono<ResponseEntity<Flux<Pyme>>> toList() {
+	}
 
-    return Mono.just(ResponseEntity.ok()
-          .contentType(MediaType.APPLICATION_JSON).body(service.findAll()));
+	@GetMapping("/{id}")
+	public Mono<ResponseEntity<Pyme>> search(@PathVariable String id) {
 
-  }
+		return service.findById(id).map(e->ResponseEntity.ok()
+				.contentType(MediaType.APPLICATION_JSON)
+				.body(e))
+				.defaultIfEmpty(ResponseEntity.notFound().build());
 
-  @GetMapping("/{id}")
-  public Mono<ResponseEntity<Pyme>> search(@PathVariable String id) {
+	}
 
-    return service.findById(id).map(p -> ResponseEntity.ok()
-      .contentType(MediaType.APPLICATION_JSON).body(p))
-      .defaultIfEmpty(ResponseEntity.notFound().build());
+	@PostMapping
+	public Mono<ResponseEntity<Pyme>> save(@RequestBody Pyme Pyme) {
 
-  }
+		return service.save(Pyme).map(e->ResponseEntity.created(URI.create("/api/Pyme"))
+				.contentType(MediaType.APPLICATION_JSON).body(e));
 
-  @PostMapping
-  public Mono<ResponseEntity<Pyme>> save(@RequestBody Pyme pyme) {
+	}
 
-    return service.save(pyme).map(p -> ResponseEntity.created(URI.create("/api/pyme"))
-                  .contentType(MediaType.APPLICATION_JSON).body(p));
+	@PutMapping("/{id}")
+	public Mono<ResponseEntity<Pyme>> update(@RequestBody PymeDto PymeDto, @PathVariable String id) {
 
-  }
+		LOGGER.info("Empresa Recibida para Actualizar :--->"+PymeDto.toString());
+		
+		return service.update(PymeDto, id).map(e->ResponseEntity
+						.created(URI.create("/api/Pyme".concat(e.getId())))
+						.contentType(MediaType.APPLICATION_JSON)
+						.body(e))
+				.defaultIfEmpty(ResponseEntity.notFound().build());
+			
+	
+	}
+	
+	@DeleteMapping("/{id}")
+	public Mono<ResponseEntity<Void>> delete(@PathVariable String id) {
+		
+		return service.findById(id).flatMap(e->{
+			return service.delete(e).then(Mono.just(new ResponseEntity<Void>(HttpStatus.ACCEPTED)));
+		}).defaultIfEmpty(new ResponseEntity<Void>(HttpStatus.NOT_FOUND));
 
-  @PutMapping("/{id}")
-  public Mono<ResponseEntity<Pyme>> update(@RequestBody Pyme pyme,
-                    @PathVariable String id) {
+		
+	}
+	
+	@PostMapping("/savePyme")
+	public Mono<ResponseEntity<Pyme>> saveDto(@RequestBody PymeDto PymeDto) {
+	
+		LOGGER.info("Empresa Recibida :--->"+PymeDto.toString());
 
-    return service.update(pyme, id)
-             .map(p -> ResponseEntity.created(URI.create("/api/pyme".concat(p.getId())))
-             .contentType(MediaType.APPLICATION_JSON).body(p))
-             .defaultIfEmpty(ResponseEntity.notFound().build());
+		return service.saveDto(PymeDto).map(e->ResponseEntity.created(URI.create("/api/Pyme"))
+				.contentType(MediaType.APPLICATION_JSON).body(e));
 
-  }
+	}
+	
+	  @GetMapping("/doc/{ruc}")
+	  public Mono<ResponseEntity<Pyme>> searchRuc(@PathVariable String ruc) {
 
-  @DeleteMapping("/{id}")
-  public Mono<ResponseEntity<Void>> delete(@PathVariable String id) {
+	    return service.findByNumDoc(ruc).map(p -> ResponseEntity.ok()
+	      .contentType(MediaType.APPLICATION_JSON).body(p))
+	      .defaultIfEmpty(ResponseEntity.notFound().build());
 
-    return service.findById(id).flatMap(p -> {
-      return service.delete(p).then(Mono.just(new ResponseEntity<Void>(HttpStatus.ACCEPTED)));
-    }).defaultIfEmpty(new ResponseEntity<Void>(HttpStatus.NOT_FOUND));
+	  }
+	
+	  @GetMapping("/valid/{ruc}")
+	  public Flux<Account> valid(@PathVariable String dni) {
+	   
+	    return service.findByNumDoc(dni).flatMapMany(cuentas ->{ 
 
-  }
-  
-  //OPERACIONES QUE EXPONEN SERVICIOS
-  
-//  @PostMapping("/save")
-//  public Mono<ResponseEntity<PersonalVip>> save(@RequestBody PersonalDto personalDto) {
-//
-//    return service.saveDto(personalDto).map(p -> ResponseEntity.created(URI.create("/api/personal"))
-//                  .contentType(MediaType.APPLICATION_JSON).body(p));
-//
-//  }
-  
-//  @GetMapping("/{id}")
-//  public Mono<ResponseEntity<Personal>> searchDni(@PathVariable String dni) {
-//
-//    return service.findByNumDoc(dni).map(p -> ResponseEntity.ok()
-//      .contentType(MediaType.APPLICATION_JSON).body(p))
-//      .defaultIfEmpty(ResponseEntity.notFound().build());
-//
-//  }
+	    	return Flux.fromIterable(cuentas.getListAccount());
+	    		
+	    });	
+	    	
+	  }
+
 
 }
